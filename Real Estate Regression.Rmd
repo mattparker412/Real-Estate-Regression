@@ -1,0 +1,148 @@
+---
+title: "Midterm 1 Stat 445"
+author: "Matthew Parker"
+date: "9/25/20"
+
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(ggplot2)
+require(ggpubr)
+```
+
+For this Midterm project I will be using the ["Real estate valuation data set"](https://archive.ics.uci.edu/ml/datasets/Real+estate+valuation+data+set) by Prof. I-Cheng Yeh from the Department of Civil Engineering, Tamkang University, Taiwan. This data set was taken from the UCI Machine Learning Repository.
+
+## Research Question
+
+When factoring for location differences and the variability of the house age and year of transaction, does distance to the nearest MRT station (metro) cause a practically significant increase in the price of housing?
+
+This is an interesting and relevant research question because it is clear, it has complete details on what is being factored for and what the question aims to solve. It is focused, there is a set goal and direction. It is concise, there is no extra wording. The question is also complex enough that you cannot simply answer yes or no, there is arguability in the effect of the output price, because there are other possible factors to consider, outside of the used data set. This leads to the last point, in that the question is arguable. 
+
+
+## Exploratory Analysis
+
+The first relationship I found interesting in my data was the relationship between the distance to the nearest MRT (metro) station and the house price per unit area. On graphing the relationship between these two, there was an obvious exponential relationship, with house price clearly being decreased with distance to MRT being increased. I then graphed the x variable as scaled by log10 and could see a clearly linear relationship between the two variables, which was exciting. My research question is "When factoring for location differences and the variability of the house age and year of transaction, does distance to the nearest MRT station (metro) cause a practically significant increase in the price of housing?", and with a linear relationship being seen, clearly there is a practically significant increase in the price of housing due to distance to MRT station. 
+
+```{r echo = FALSE}
+
+df <- read.csv("Real_Estate_Data.csv")
+```
+
+```{r echo=TRUE, fig.height=4, fig.width=4}
+ggplot(data = df, 
+       mapping = aes(x = X3.distance.to.the.nearest.MRT.station, 
+                     y = Y.house.price.of.unit.area))+ 
+  geom_point(alpha=0.75) + 
+  labs(title = "Distance to Nearest Metro vs House Price", 
+       x = "Distance to Nearest Metro (scaled log10)", 
+       y = "House Price per Unit Area") + 
+  scale_x_log10() + 
+  geom_smooth(method="lm")
+```
+
+Here we can see that there is likely a linear relationship between the predictor of MRT station distance and response variable house price.
+
+
+
+The next relationship to explore is that between X3 distance to metro and X4 number of convenience stores in the immediate area. I found through a correlation test that the two were indeed correlated (after testing many other variable relationships as well). 
+
+```{r echo=TRUE}
+
+res3 <- cor.test(df$X3.distance.to.the.nearest.MRT.station, 
+                 df$X4.number.of.convenience.stores, method="pearson")
+res3
+```
+The important takeaway here is the p-value of 2.2e-16, which is obviously extremely low, meaning that there is a practically significant correlation between the two variables. 
+
+
+
+Another important correlation is between latitude and longitude, the two location variables.
+```{r echo=TRUE, fig.height=4, fig.width=4}
+
+ggplot(data = df, 
+       mapping = aes(x = X5.latitude, 
+                     y = X6.longitude))+ 
+  geom_point(alpha=0.75) + 
+  labs(title = "Latitude vs. Longitude", 
+       x = "Latitude", 
+       y = "Longitude") + 
+  geom_smooth(method="lm")
+res4 <- cor.test(df$X5.latitude, df$X6.longitude, method="pearson")
+res4
+
+```
+Here we again have a very low p-value of 2.2e-16, leading to a conclusion that latitude and longitude variables will be highly correlated in the linear regression.  
+
+```{r echo=TRUE, fig.height=3, fig.width=4}
+ggplot(data=df, mapping = aes(x = X5.latitude, y=Y.house.price.of.unit.area)) + 
+  geom_point() +
+  labs(title = "Latitude vs. House Price", 
+       x = "Latitude", 
+       y = "House Price per Unit Area")
+ggplot(data=df, mapping = aes(x = X6.longitude, y=Y.house.price.of.unit.area)) + 
+  geom_point() +
+  labs(title = "Longitude vs. House Price", 
+       x = "Longitude", 
+       y = "House Price per Unit Area")
+```
+If we graph latitude and longitude vs house price, we can see some definitive cluster points, assumed around downtown areas that would be more expensive. This would make sense as to why the two variables might be correlated, because there is a clustering of expensive housing, and only one of the two variables being necessary in the regression would make sense.
+
+## Linear Regression 
+Now to construct the linear regression model.
+```{r echo=TRUE, fig.height=3, fig.width=3}
+df <- read.csv("Data.csv")
+modl = lm(formula = Y.house.price.of.unit.area ~ X1.transaction.date + X2.house.age +
+            X3.distance.to.the.nearest.MRT.station + X4.number.of.convenience.stores + 
+            X5.latitude + X6.longitude  , df)
+plot(modl)
+
+
+```
+
+1. Plotting the response variable vs the predictor variables leads to a fairly linear looking relationship.
+
+2. Each predictor is correlated with the response with great significance less than 5%, except for longitude. We know from before that X3 MRT and X4 convenience store are correlated with great significance, as well as X5 latitude and X6 longitude.
+
+```{r echo=TRUE}
+summary(modl)
+
+
+```
+
+3. Each parameter is significant , other than longitude. This variable is strongly correlated with latitude.
+Now to remove longitude to create a better regression.
+
+```{r echo=TRUE, fig.height=3, fig.width=3}
+modl = lm(formula = Y.house.price.of.unit.area ~ X1.transaction.date + X2.house.age +
+            X3.distance.to.the.nearest.MRT.station + X4.number.of.convenience.stores + 
+            X5.latitude  , df)
+summary(modl)
+```
+
+4. Most estimated values stayed the same, except for that of latitude which increased greatly and actually changed signs.
+
+5. The p-values of most variables stayed about the same. The only variables greatly affected were the intercept and X3 distance to MRT. Each of these decreased significantly in p-value, with MRT now becoming the most significant variable with a p-value five powers of ten lower than each other variable.
+
+6. A confidence interval including zero effectively means that the null hypothesis is included in the confidence interval, so long as this is not true leads to a low p-value. A confidence interval including zero leads to a high p-value for the estimated value.
+
+7. R2 is interpreted at a high level as the amount or variance that can be explained by the model. In this case a little over 50% of the variance is contained in the model, which means the model is above average.
+
+## Conclusion
+Through the regression there has been found an extremely significant relationship between all five predictors and the resultant variable of house price per unit area. It is interesting that latitude and longitude are correlated together, but not surprising. Also not surprising is that MRT station distance and convenience stores are correlated variables, since the two likely go hand in hand for house locations within the major downtown areas.
+Through regression, the p-value of X3 MRT station gave a very strong answer to the research question.
+In conclusion, I have found that there is indeed a practically significant relationship between distance to nearest MRT station and House Price per Unit Area. 
+Given more time to study the problem, I would try to sort out any error in the model by finding a way to include exact location of housing by combining the latitude and longitude variables. I would also test whether the correlation between MRT station and convenience stores is effecting the results of the model. There were also variables of house age and transaction date that were left fairly bare, and those should be examined further, as they are clearly significant factors for house price. 
+
+## Works Cited
+[UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets/Real+estate+valuation+data+set)
+
+[Data Camp Quick R](https://www.statmethods.net/stats/regression.html)
+
+[Rstudio ggplot cheat sheet](https://rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf)
+
+[Data Camp linear regression](https://www.datacamp.com/community/tutorials/linear-regression-R)
